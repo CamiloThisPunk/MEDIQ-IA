@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 export default function ResultView({ paciente, evaluacion, onReset }) {
   const isEmergency = evaluacion?.nivel_atencion === 'Emergencia' || evaluacion?.nivel_urgencia === 'Emergencia';
   const [explicacion, setExplicacion] = useState('');
+  const [traduccion, setTraduccion] = useState('');
+  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
     if (evaluacion?.id) {
-      const evtSource = new EventSource(`http://localhost:3000/api/evaluaciones/${evaluacion.id}/explicacion`);
+      const evtSource = new EventSource(`http://localhost:3000/api/evaluaciones/${evaluacion.id}/explicacion/stream`);
       evtSource.onmessage = (e) => {
         const payload = JSON.parse(e.data);
         if (payload.done) {
@@ -19,6 +21,55 @@ export default function ResultView({ paciente, evaluacion, onReset }) {
     }
   }, [evaluacion]);
   
+  const handleTranslate = async () => {
+    if (isTranslating || traduccion) return;
+    setIsTranslating(true);
+    setTraduccion('');
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/traducir/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ texto: explicacion, idioma_origen: 'Español', idioma_destino: 'Quechua' })
+      });
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunkStr = decoder.decode(value);
+        const lines = chunkStr.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6);
+            if (dataStr.trim()) {
+              const payload = JSON.parse(dataStr);
+              if (payload.done) {
+                break;
+              } else if (payload.chunk) {
+                setTraduccion(prev => prev + payload.chunk);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Translation error", err);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (evaluacion?.id) {
+      window.open(`http://localhost:3000/api/evaluaciones/${evaluacion.id}/referencia`, '_blank');
+    }
+  };
+
   return (
     <div className="bg-background text-on-background font-body-md min-h-screen antialiased pb-24 md:pb-12">
       <main className="w-full max-w-[1024px] mx-auto px-margin-mobile md:px-margin-tablet pt-8 md:pt-12">
@@ -82,8 +133,14 @@ export default function ResultView({ paciente, evaluacion, onReset }) {
               <p className="font-body-lg text-body-lg text-on-surface mb-6 flex-1 whitespace-pre-wrap">
                 {explicacion || 'Generando explicación...'}
               </p>
+              {traduccion && (
+                <div className="mt-4 pt-4 border-t border-outline-variant">
+                  <h3 className="font-headline-sm text-primary mb-2">Traducción a Quechua:</h3>
+                  <p className="font-body-lg text-body-lg text-on-surface whitespace-pre-wrap">{traduccion}</p>
+                </div>
+              )}
               
-              <div className="bg-surface-variant rounded-xl p-4 flex gap-3 items-start border border-outline-variant/30">
+              <div className="bg-surface-variant rounded-xl p-4 flex gap-3 items-start border border-outline-variant/30 mt-6">
                 <span aria-hidden="true" className="material-symbols-outlined text-on-surface-variant mt-1">info</span>
                 <div>
                   <p className="font-label-md text-label-md text-on-surface-variant mb-1">Aviso Clínico</p>
@@ -121,11 +178,11 @@ export default function ResultView({ paciente, evaluacion, onReset }) {
         </div>
 
         <div className="fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant p-4 px-margin-mobile flex flex-col md:flex-row justify-end gap-3 md:gap-4 z-50 md:relative md:border-none md:bg-transparent md:p-0 md:mt-12 md:pb-12 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
-          <button className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-surface-container-low px-6 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors">
+          <button onClick={handleTranslate} disabled={isTranslating || !explicacion} className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-surface-container-low px-6 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
             <span aria-hidden="true" className="material-symbols-outlined">translate</span>
-            <span>Traducir a Quechua</span>
+            <span>{isTranslating ? 'Traduciendo...' : 'Traducir a Quechua'}</span>
           </button>
-          <button className="flex-1 md:flex-none bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-8 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors shadow-sm">
+          <button onClick={handleDownloadPDF} className="flex-1 md:flex-none bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-8 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors shadow-sm">
             <span aria-hidden="true" className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>picture_as_pdf</span>
             <span>Generar Carta de Referencia</span>
           </button>

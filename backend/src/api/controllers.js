@@ -30,6 +30,18 @@ exports.getPaciente = (req, res) => {
     res.status(200).json(paciente);
 };
 
+exports.getAllPacientes = (req, res) => {
+    // Return all patients with their latest evaluation status
+    const pacientes = db.prepare(`
+        SELECT p.*, e.nivel_atencion, e.created_at as evaluacion_fecha 
+        FROM pacientes p 
+        LEFT JOIN evaluaciones e ON p.id = e.paciente_id 
+        GROUP BY p.id 
+        ORDER BY p.created_at DESC
+    `).all();
+    res.status(200).json(pacientes);
+};
+
 exports.createEvaluacion = (req, res) => {
     const data = req.body;
     

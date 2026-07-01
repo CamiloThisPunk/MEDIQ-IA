@@ -1,6 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 export default function Dashboard({ onNewPatient, onLogout }) {
+  const [pacientes, setPacientes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPacientes = async () => {
+      try {
+        const res = await axios.get('http://localhost:3000/api/pacientes');
+        setPacientes(res.data);
+      } catch (error) {
+        console.error("Error fetching pacientes:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPacientes();
+  }, []);
+
+  const stats = {
+    emergencia: pacientes.filter(p => p.nivel_atencion === 'Emergencia').length,
+    prioritario: pacientes.filter(p => p.nivel_atencion === 'Prioritario').length,
+    consulta: pacientes.filter(p => p.nivel_atencion === 'Consulta').length,
+    autocuidado: pacientes.filter(p => p.nivel_atencion === 'Autocuidado').length,
+  };
+
   return (
     <div className="bg-background text-on-background font-body-md text-body-md antialiased min-h-screen flex flex-col md:flex-row">
       {/* SideNavBar */}
@@ -82,22 +107,22 @@ export default function Dashboard({ onNewPatient, onLogout }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
               <div className="absolute top-0 left-0 w-full h-1 bg-error"></div>
-              <span className="font-display-lg text-display-lg text-error mb-1">0</span>
+              <span className="font-display-lg text-display-lg text-error mb-1">{stats.emergencia}</span>
               <span className="font-label-md text-label-md text-on-surface-variant">Emergencia</span>
             </div>
             <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
               <div className="absolute top-0 left-0 w-full h-1 bg-tertiary"></div>
-              <span className="font-display-lg text-display-lg text-tertiary mb-1">0</span>
+              <span className="font-display-lg text-display-lg text-tertiary mb-1">{stats.prioritario}</span>
               <span className="font-label-md text-label-md text-on-surface-variant">Prioritario</span>
             </div>
             <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
               <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
-              <span className="font-display-lg text-display-lg text-primary mb-1">0</span>
+              <span className="font-display-lg text-display-lg text-primary mb-1">{stats.consulta}</span>
               <span className="font-label-md text-label-md text-on-surface-variant">Consulta</span>
             </div>
             <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
               <div className="absolute top-0 left-0 w-full h-1 bg-green-600"></div>
-              <span className="font-display-lg text-display-lg text-green-700 mb-1">0</span>
+              <span className="font-display-lg text-display-lg text-green-700 mb-1">{stats.autocuidado}</span>
               <span className="font-label-md text-label-md text-on-surface-variant">Autocuidado</span>
             </div>
           </div>
@@ -113,9 +138,52 @@ export default function Dashboard({ onNewPatient, onLogout }) {
             </button>
           </div>
 
-          <div className="flex flex-col gap-4 text-center p-12 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant text-on-surface-variant">
-            <p>No hay pacientes en espera. Agregue un nuevo paciente.</p>
-          </div>
+          {loading ? (
+             <div className="flex flex-col gap-4 text-center p-12 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant text-on-surface-variant">
+               <p>Cargando pacientes...</p>
+             </div>
+          ) : pacientes.length === 0 ? (
+            <div className="flex flex-col gap-4 text-center p-12 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant text-on-surface-variant">
+              <p>No hay pacientes en espera. Agregue un nuevo paciente.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {pacientes.map(p => (
+                <div key={p.id} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between shadow-sm hover:shadow-md transition-shadow gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-primary shrink-0">
+                      <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>person</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-headline-sm text-on-surface">{p.nombre}</span>
+                      <span className="font-body-md text-on-surface-variant">Edad: {p.edad} • Sexo: {p.sexo} • {p.distrito}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full">
+                    {p.nivel_atencion ? (
+                      <div className="flex flex-col sm:items-end">
+                        <span className={`px-4 py-1.5 rounded-full text-sm font-label-md inline-flex w-fit ${
+                          p.nivel_atencion === 'Emergencia' ? 'bg-error-container text-on-error-container border border-error/20' : 
+                          p.nivel_atencion === 'Prioritario' ? 'bg-tertiary-container text-on-tertiary-container border border-tertiary/20' :
+                          p.nivel_atencion === 'Consulta' ? 'bg-primary-container text-on-primary-container border border-primary/20' :
+                          'bg-[#e6f4ea] text-[#137333] border border-[#137333]/20'
+                        }`}>
+                          {p.nivel_atencion.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-on-surface-variant mt-1.5">{new Date(p.evaluacion_fecha).toLocaleDateString()}</span>
+                      </div>
+                    ) : (
+                      <span className="px-3 py-1 bg-surface-variant text-on-surface-variant rounded-full text-sm">Sin triaje</span>
+                    )}
+                    <button className="text-primary hover:bg-surface-container-high p-3 rounded-full transition-colors hidden sm:flex">
+                      <span className="material-symbols-outlined">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>

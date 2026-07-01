@@ -4,6 +4,7 @@ const controllers = require('./controllers');
 
 // Pacientes
 router.post('/pacientes', controllers.createPaciente);
+router.get('/pacientes', controllers.getAllPacientes);
 router.get('/pacientes/:id', controllers.getPaciente);
 
 // Evaluaciones
