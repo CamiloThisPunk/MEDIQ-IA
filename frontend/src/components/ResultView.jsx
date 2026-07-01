@@ -6,7 +6,7 @@ export default function ResultView({ paciente, evaluacion, onReset }) {
 
   useEffect(() => {
     if (evaluacion?.id) {
-      const evtSource = new EventSource(`http://localhost:3000/api/evaluaciones/${evaluacion.id}/explicacion`);
+      const evtSource = new EventSource(`http://localhost:3000/api/evaluaciones/${evaluacion.id}/explicacion/stream`);
       evtSource.onmessage = (e) => {
         const payload = JSON.parse(e.data);
         if (payload.done) {
@@ -18,6 +18,12 @@ export default function ResultView({ paciente, evaluacion, onReset }) {
       return () => evtSource.close();
     }
   }, [evaluacion]);
+
+  const handleGeneratePDF = () => {
+    if (evaluacion?.id) {
+      window.open(`http://localhost:3000/api/evaluaciones/${evaluacion.id}/referencia`, '_blank');
+    }
+  };
   
   return (
     <div className="bg-background text-on-background font-body-md min-h-screen antialiased pb-24 md:pb-12">
@@ -121,11 +127,11 @@ export default function ResultView({ paciente, evaluacion, onReset }) {
         </div>
 
         <div className="fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant p-4 px-margin-mobile flex flex-col md:flex-row justify-end gap-3 md:gap-4 z-50 md:relative md:border-none md:bg-transparent md:p-0 md:mt-12 md:pb-12 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
-          <button className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-surface-container-low px-6 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors">
+          <button onClick={() => alert('Función de traducción en desarrollo.')} className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-surface-container-low px-6 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors">
             <span aria-hidden="true" className="material-symbols-outlined">translate</span>
             <span>Traducir a Quechua</span>
           </button>
-          <button className="flex-1 md:flex-none bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-8 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors shadow-sm">
+          <button onClick={handleGeneratePDF} className="flex-1 md:flex-none bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-8 min-h-[56px] rounded-full font-button text-button flex items-center justify-center gap-2 transition-colors shadow-sm">
             <span aria-hidden="true" className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>picture_as_pdf</span>
             <span>Generar Carta de Referencia</span>
           </button>
